@@ -38,6 +38,10 @@ func main () {
 				if err != nil {
 					log.Printf("error refreshing redirects: %v", err)
 				}
+				err = writeRedirects(redirects)
+				if err != nil {
+					log.Printf("error writing redirects: %v", err)
+				}
 			}
 		}
 	}()
