@@ -15,8 +15,8 @@ processes = []
 
 [[services]]
   http_checks = []
-  internal_port = 8080
-  processes = ["app"]
+  internal_port = 80
+  processes = ["/app/golinks"]
   protocol = "tcp"
   script_checks = []
   [services.concurrency]
