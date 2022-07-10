@@ -1,0 +1,5 @@
+# this hosts file property of me!!! dont touch
+
+{{ range .lines }}
+{{ .ip }} {{ .host }} # {{ .comment }}
+{{- end }}
