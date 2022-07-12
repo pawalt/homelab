@@ -95,7 +95,7 @@ func pullRedirects() (map[string]string, error) {
 }
 
 func renderHostsFile(newRedirects map[string]string) (string, error) {
-	advertiseIP := GetOutboundIP()
+	advertiseIP := getOutboundIP()
 
 	lines := make([]gin.H, 0, len(newRedirects))
 	for source, dest := range newRedirects {
@@ -178,8 +178,7 @@ func envOrDefault(envVar, def string) string {
 	}
 }
 
-// Get preferred outbound ip of this machine
-func GetOutboundIP() net.IP {
+func getOutboundIP() net.IP {
 	conn, err := net.Dial("udp", "100.100.100.100:80")
 	if err != nil {
 		log.Fatal(err)
