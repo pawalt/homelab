@@ -25,3 +25,10 @@
 - name: Set a hostname
   ansible.builtin.hostname:
     name: "{{ inventory_hostname }}"
+
+- name: Install common packages
+  ansible.builtin.apt:
+    pkg:
+      - apt-transport-https
+    update_cache: yes
+    cache_valid_time: 3600

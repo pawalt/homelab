@@ -1,6 +1,7 @@
 base setup
 ```
 $ ansible-galaxy install artis3n.tailscale
+$ ansible-galaxy collection install community.docker
 ```
 
 per pi
