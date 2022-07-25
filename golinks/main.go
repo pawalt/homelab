@@ -18,14 +18,9 @@ func main () {
 	templ := template.Must(template.New("").ParseFS(f, "templates/*.tmpl"))
 	router.SetHTMLTemplate(templ)
 
-	redirects, err := pullRedirects()
+	redirects, err := refreshRedirects()
 	if err != nil {
-		log.Fatalln(err)
-	}
-
-	err = writeRedirects(redirects)
-	if err != nil {
-		log.Fatalln(err)
+		log.Fatalf("error intializing redirects: %v\n", err)
 	}
 
 	// refresh redirects every 5 min
@@ -34,13 +29,9 @@ func main () {
 		for {
 			select {
 			case <- ticker.C:
-				redirects, err = pullRedirects()
+				redirects, err = refreshRedirects()
 				if err != nil {
-					log.Printf("error refreshing redirects: %v", err)
-				}
-				err = writeRedirects(redirects)
-				if err != nil {
-					log.Printf("error writing redirects: %v", err)
+					log.Printf("error refreshing redirects: %v\n", err)
 				}
 			}
 		}

@@ -203,3 +203,17 @@ func writeRedirects(redirects map[string]string) error {
 
 	return nil
 }
+
+func refreshRedirects() (map[string]string, error) {
+	redirects, err := pullRedirects()
+	if err != nil {
+		return nil, err
+	}
+
+	err = writeRedirects(redirects)
+	if err != nil {
+		return nil, err
+	}
+
+	return redirects, nil
+}
