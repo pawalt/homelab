@@ -1,3 +1,9 @@
+base setup
+```
+$ ansible-galaxy install artis3n.tailscale
+```
+
+per pi
 ```
 - 64 bit raspbian lite image
 - configure in settings
