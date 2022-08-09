@@ -2,13 +2,13 @@
   gather_facts: false
   tasks:
     - name: Check for Python
-      raw: test -e /usr/bin/python
+      raw: test -e /usr/bin/python3
       changed_when: false
       failed_when: false
       register: check_python
 
     - name: Install Python
-      raw: sudo apt -y update && sudo apt install -y python
+      raw: sudo apt -y update && sudo apt install -y python3
       when: check_python.rc != 0
       become: true
 

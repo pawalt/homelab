@@ -1,7 +1,15 @@
 base setup
 ```
+# global
 $ ansible-galaxy install artis3n.tailscale
+
+# pi
 $ ansible-galaxy collection install community.docker
+$ ansible-galaxy install mrlesmithjr.mdadm
+$ ansible-galaxy install geerlingguy.nfs
+
+# k8s
+$ ansible-galaxy install racqspace.microk8s
 ```
 
 per pi
