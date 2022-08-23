@@ -4,13 +4,10 @@
   ansible.posix.authorized_key:
     user: "{{ ansible_ssh_user }}"
     state: present
-    key: https://github.com/pawalt.keys
-
-- name: Allow ssh from davis
-  ansible.posix.authorized_key:
-    user: "{{ ansible_ssh_user }}"
-    state: present
-    key: https://github.com/davish.keys
+    key: "https://github.com/{{ item }}.keys"
+  loop:
+    - peyton
+    - davish
 
 - name: Disable root login over SSH
   lineinfile: dest=/etc/ssh/sshd_config regexp="^PermitRootLogin" line="PermitRootLogin no" state=present
