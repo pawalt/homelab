@@ -6,7 +6,7 @@
     state: present
     key: "https://github.com/{{ item }}.keys"
   loop:
-    - peyton
+    - pawalt
     - davish
 
 - name: Disable root login over SSH
