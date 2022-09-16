@@ -1,0 +1,57 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: radarr
+spec:
+  selector:
+    matchLabels:
+      app: radarr
+  template:
+    metadata:
+      labels:
+        app: radarr
+    spec:
+      containers:
+        - name: radarr
+          env:
+            - name: PUID
+              value: "1000"
+            - name: PGID
+              value: "1000"
+            - name: TZ
+              value: "America/New_York"
+          # latest is ok here because reasons
+          image: lscr.io/linuxserver/radarr:latest
+          ports:
+            - containerPort: 7878
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /data/media
+              name: media
+            - mountPath: /config
+              name: radarr-config
+      restartPolicy: Always
+      volumes:
+        - name: media
+          hostPath:
+            path: /mnt/kube/jellyfin/data
+        - name: radarr-config
+          hostPath:
+            path: /mnt/kube/radarr/config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: radarr
+  name: radarr
+spec:
+  ports:
+    - name: web
+      port: 80
+      targetPort: 7878
+  selector:
+    app: radarr
+  type: LoadBalancer
+  loadBalancerIP: "172.27.10.86"

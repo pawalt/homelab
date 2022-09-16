@@ -45,6 +45,7 @@
     - sonarr.yaml
     - jackett.yaml
     - trustmission.yaml
+    - radarr.yaml
 
 - name: Apply in kube yaml
   ansible.builtin.command: microk8s kubectl apply -f /opt/manifests
