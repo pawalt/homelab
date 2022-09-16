@@ -1,0 +1,4 @@
+- hosts: pi-3b-0
+  roles:
+    - role: homeassistant
+      become: true

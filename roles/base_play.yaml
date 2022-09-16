@@ -1,0 +1,23 @@
+- hosts: all
+  gather_facts: false
+  tasks:
+    - name: Check for Python
+      raw: test -e /usr/bin/python3
+      changed_when: false
+      failed_when: false
+      register: check_python
+
+    - name: Install Python
+      raw: sudo apt -y update && sudo apt install -y python3
+      when: check_python.rc != 0
+      become: true
+
+- hosts: all
+  roles:
+    - role: common
+      become: true
+    - role: artis3n.tailscale
+      become: true
+      vars:
+        tailscale_authkey: "{{ tailscale_key }}"
+        tailscale_args: "--accept-routes"
