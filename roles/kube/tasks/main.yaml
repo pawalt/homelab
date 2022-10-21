@@ -46,6 +46,7 @@
     - jackett.yaml
     - trustmission.yaml
     - radarr.yaml
+    - ddns.yaml
 
 - name: Apply in kube yaml
   ansible.builtin.command: microk8s kubectl apply -f /opt/manifests

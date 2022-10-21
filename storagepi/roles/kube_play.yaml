@@ -1,4 +1,0 @@
-- hosts: lapbox
-  roles:
-    - role: kube
-      become: true

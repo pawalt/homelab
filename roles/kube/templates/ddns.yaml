@@ -1,0 +1,17 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ddns
+spec:
+  schedule: "0 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: ddns
+              image: curlimages/curl:7.85.0
+              args:
+                - https://link-ip.nextdns.io/ad7f15/2713875705de3815
+          restartPolicy: Never
