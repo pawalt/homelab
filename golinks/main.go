@@ -1,24 +1,35 @@
 package main
 
 import (
+	"context"
 	"embed"
-	"github.com/gin-gonic/gin"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v4"
+	"github.com/pawalt/homelab/golinks/pkg/config"
 )
 
 //go:embed templates/*
 var f embed.FS
 
-func main () {
+func main() {
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, config.CONNECTION_URL)
+	if err != nil {
+		log.Fatalf("failed to connect to db: %v\n", err)
+	}
+
 	router := gin.Default()
 	templ := template.Must(template.New("").ParseFS(f, "templates/*.tmpl"))
 	router.SetHTMLTemplate(templ)
 
-	redirects, err := refreshRedirects()
+	redirects, err := refreshRedirects(conn)
 	if err != nil {
 		log.Fatalf("error intializing redirects: %v\n", err)
 	}
@@ -28,8 +39,8 @@ func main () {
 		ticker := time.NewTicker(5 * time.Minute)
 		for {
 			select {
-			case <- ticker.C:
-				redirects, err = refreshRedirects()
+			case <-ticker.C:
+				redirects, err = refreshRedirects(conn)
 				if err != nil {
 					log.Printf("error refreshing redirects: %v\n", err)
 				}
@@ -37,14 +48,20 @@ func main () {
 		}
 	}()
 
-
 	router.GET("/_/hosts", func(c *gin.Context) {
+		redirects, err = getRedirects(c.Request.Context(), conn)
+		if err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("err refreshing redirects: %v", err))
+		}
+
 		c.HTML(http.StatusOK, "hosts.tmpl", gin.H{
 			"redirects": redirects,
 		})
 	})
 
 	router.POST("/_/hosts", func(c *gin.Context) {
+		ctx := c.Request.Context()
+
 		sources := c.PostFormArray("sources[]")
 		targets := c.PostFormArray("targets[]")
 
@@ -53,20 +70,52 @@ func main () {
 			return
 		}
 
-		newRedirects := make(map[string]string)
-		for i, source := range sources {
-			target := targets[i]
-
-			if source == "" || target == "" {
-				continue
+		if len(sources) != 0 {
+			tx, err := conn.Begin(ctx)
+			if err != nil {
+				c.String(http.StatusBadRequest, fmt.Sprintf("err starting txn: %v", err))
+				return
 			}
 
-			newRedirects[source] = target
+			_, err = tx.Exec(ctx, "TRUNCATE redirects")
+			if err != nil {
+				c.String(http.StatusBadRequest, fmt.Sprintf("err truncating: %v", err))
+				return
+			}
+
+			insertCmd := `INSERT INTO redirects (source, target) VALUES `
+
+			jawns := make([]string, 0, len(sources))
+			for i := range sources {
+				source := sources[i]
+				target := targets[i]
+				jawns = append(jawns, fmt.Sprintf(`('%s', '%s')`, source, target))
+			}
+
+			insertCmd += strings.Join(jawns, ",")
+			_, err = tx.Exec(ctx, insertCmd)
+			if err != nil {
+				c.String(http.StatusBadRequest, fmt.Sprintf("err inserting: %v", err))
+				return
+			}
+
+			err = tx.Commit(ctx)
+			if err != nil {
+				c.String(http.StatusBadRequest, fmt.Sprintf("err committing: %v", err))
+				return
+			}
+		}
+
+		newRedirects, err := getRedirects(ctx, conn)
+		if err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("err getting redirects: %v", err))
+			return
 		}
 
 		err = writeRedirects(newRedirects)
 		if err != nil {
 			c.String(http.StatusInternalServerError, "failure writing redirects: %v", err)
+			return
 		}
 
 		redirects = newRedirects
@@ -107,7 +156,7 @@ func main () {
 			retainedPath = sides[1]
 		}
 
-		c.Redirect(http.StatusFound, redirects[longestPrefix] + retainedPath)
+		c.Redirect(http.StatusFound, redirects[longestPrefix]+retainedPath)
 	})
 
 	router.Run(":80")

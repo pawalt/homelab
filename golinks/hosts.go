@@ -2,97 +2,26 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/sftp"
-	"github.com/txn2/txeh"
-	"golang.org/x/crypto/ssh"
-	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"strings"
 	tex "text/template"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v4"
+	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh"
 )
 
 var (
-	user = envOrDefault("GOLINKS_SSH_USERNAME", "root")
-	remote = envOrDefault("GOLINKS_SSH_HOST", "openwrt")
-	port = envOrDefault("GOLINKS_SSH_PORT", "22")
+	user      = envOrDefault("GOLINKS_SSH_USERNAME", "root")
+	remote    = envOrDefault("GOLINKS_SSH_HOST", "openwrt")
+	port      = envOrDefault("GOLINKS_SSH_PORT", "22")
 	hostsPath = envOrDefault("GOLINKS_HOSTPATH", "/etc/hosts.d/golinks.hosts")
 )
-
-func pullRedirects() (map[string]string, error) {
-	config := &ssh.ClientConfig{
-		User: user,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	}
-
-	// ssh conn
-	conn, err := ssh.Dial("tcp", remote + ":" +port, config)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
-	// create new SFTP client
-	client, err := sftp.NewClient(conn)
-	if err != nil {
-		return nil, err
-	}
-	defer client.Close()
-
-	// open source file
-	srcFile, err := client.Open(hostsPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// make tmp dest file
-	dstFile, err := ioutil.TempFile("/tmp", "golinks")
-	if err != nil {
-		return nil, err
-	}
-	defer os.Remove(dstFile.Name())
-
-	_, err = io.Copy(dstFile, srcFile)
-	if err != nil {
-		return nil, err
-	}
-
-	err = dstFile.Sync()
-	if err != nil {
-		return nil, err
-	}
-
-	hosts, err := txeh.NewHosts(&txeh.HostsConfig{ReadFilePath: dstFile.Name()})
-	if err != nil {
-		return nil, err
-	}
-
-	redirects := make(map[string]string)
-	for _, line := range *hosts.GetHostFileLines() {
-		comment := strings.TrimSpace(line.Comment)
-		sides := strings.Split(comment, " -> ")
-		if len(sides) != 2 {
-			continue
-		}
-
-		source := sides[0]
-		target := sides[1]
-		redirects[source] = target
-
-		if val, found := redirects[source]; found {
-			log.Printf("attempted to map %v to %v but found %v\n", source, target, val)
-			continue
-		}
-
-		redirects[source] = target
-	}
-
-	return redirects, nil
-}
 
 func renderHostsFile(newRedirects map[string]string) (string, error) {
 	advertiseIP := getOutboundIP()
@@ -103,15 +32,15 @@ func renderHostsFile(newRedirects map[string]string) (string, error) {
 		comment := source + " -> " + dest
 
 		lines = append(lines, gin.H{
-			"ip": advertiseIP,
-			"host": host,
+			"ip":      advertiseIP,
+			"host":    host,
 			"comment": comment,
 		})
 	}
 
 	lines = append(lines, gin.H{
-		"ip": advertiseIP,
-		"host": "go",
+		"ip":      advertiseIP,
+		"host":    "go",
 		"comment": "",
 	})
 
@@ -129,12 +58,12 @@ func renderHostsFile(newRedirects map[string]string) (string, error) {
 
 func writeHostsFile(hostfile string) error {
 	config := &ssh.ClientConfig{
-		User: user,
+		User:            user,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
 	// ssh conn
-	conn, err := ssh.Dial("tcp", remote + ":" +port, config)
+	conn, err := ssh.Dial("tcp", remote+":"+port, config)
 	if err != nil {
 		return err
 	}
@@ -164,7 +93,7 @@ func writeHostsFile(hostfile string) error {
 	}
 	defer session.Close()
 
-	session.Run("kill -HUP $(ps | grep dnsmasq | grep -v grep | cut -d \" \" -f1)")
+	session.Run("kill -HUP $(ps | grep dnsmasq | grep -v grep | xargs | cut -d \" \" -f1)")
 
 	return nil
 }
@@ -204,8 +133,8 @@ func writeRedirects(redirects map[string]string) error {
 	return nil
 }
 
-func refreshRedirects() (map[string]string, error) {
-	redirects, err := pullRedirects()
+func refreshRedirects(conn *pgx.Conn) (map[string]string, error) {
+	redirects, err := getRedirects(context.Background(), conn)
 	if err != nil {
 		return nil, err
 	}
@@ -215,5 +144,25 @@ func refreshRedirects() (map[string]string, error) {
 		return nil, err
 	}
 
+	return redirects, nil
+}
+
+func getRedirects(ctx context.Context, conn *pgx.Conn) (map[string]string, error) {
+	rows, err := conn.Query(ctx, "SELECT source, target FROM redirects")
+	if err != nil {
+		return nil, err
+	}
+
+	redirects := make(map[string]string)
+	// there has to be a better way to do this right i feel crazy
+	for rows.Next() {
+		var source string
+		var target string
+		err := rows.Scan(&source, &target)
+		if err != nil {
+			return nil, err
+		}
+		redirects[source] = target
+	}
 	return redirects, nil
 }
