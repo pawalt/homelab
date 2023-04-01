@@ -2,7 +2,3 @@
   roles:
     - role: homeassistant
       become: true
-    - role: layereight.wifi
-      vars:
-        wifi_ssid: twopointfour
-        wifi_psk: hackerman
