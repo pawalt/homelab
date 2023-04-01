@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Vital Activity</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  </head>
+  <body>
+    <canvas id="myChart"></canvas>
+
+    <script>
+      // Create an array of timestamps and an array of counts
+      var timestamps = JSON.parse({{ .timings }});
+      var counts = JSON.parse({{ .counts }});
+      
+      // Convert the timestamps to Date objects
+      timestamps = timestamps.map(function(timestamp) {
+        return new Date(timestamp);
+      });
+      
+      var ctx = document.getElementById('myChart').getContext('2d');
+      var chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: timestamps,
+          datasets: [{
+            label: 'Vital Activity',
+            data: counts,
+            backgroundColor: 'rgba(0, 0, 255, 0.5)',
+            borderColor: 'rgba(0, 0, 255, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+            scales: {
+                x: {
+                    type: 'time',
+                }
+            },
+          responsive: true,
+          maintainAspectRatio: true
+        }
+      });
+    </script>
+  </body>
+</html>

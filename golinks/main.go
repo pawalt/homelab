@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -13,12 +14,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v4"
 	"github.com/pawalt/homelab/golinks/pkg/config"
+	"github.com/pawalt/homelab/golinks/pkg/jobs"
 )
 
 //go:embed templates/*
 var f embed.FS
 
 func main() {
+	cronJobs, err := jobs.GetJobs()
+	if err != nil {
+		panic(err)
+	}
+	cronJobs.Start()
+
 	ctx := context.Background()
 	conn, err := pgx.Connect(ctx, config.CONNECTION_URL)
 	if err != nil {
@@ -26,6 +34,7 @@ func main() {
 	}
 
 	router := gin.Default()
+
 	templ := template.Must(template.New("").ParseFS(f, "templates/*.tmpl"))
 	router.SetHTMLTemplate(templ)
 
@@ -122,6 +131,46 @@ func main() {
 
 		c.HTML(http.StatusOK, "hosts.tmpl", gin.H{
 			"redirects": redirects,
+		})
+	})
+
+	router.GET("/_/vital", func(c *gin.Context) {
+		ctx := c.Request.Context()
+
+		rows, err := conn.Query(ctx, "SELECT log_time, active_count FROM timings ORDER BY log_time")
+		if err != nil {
+			c.String(http.StatusInternalServerError, "error getting timings: %v", err)
+			return
+		}
+
+		timings := make([]string, 0)
+		counts := make([]int, 0)
+		for rows.Next() {
+			var logTime time.Time
+			var activeCount int
+			err = rows.Scan(&logTime, &activeCount)
+			if err != nil {
+				c.String(http.StatusInternalServerError, "error scanning row: %v", err)
+				return
+			}
+
+			timings = append(timings, logTime.String())
+			counts = append(counts, activeCount)
+		}
+
+		timingsJSON, err := json.Marshal(timings)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "error marshaling timings: %v", err)
+			return
+		}
+		countsJSON, err := json.Marshal(counts)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "error marshaling counts: %v", err)
+			return
+		}
+		c.HTML(http.StatusOK, "vital.html.tmpl", gin.H{
+			"timings": string(timingsJSON),
+			"counts":  string(countsJSON),
 		})
 	})
 

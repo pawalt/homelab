@@ -9,6 +9,7 @@ import (
 	"github.com/pawalt/homelab/golinks/pkg/config"
 )
 
+// run this like `go run pkg/migrations/main.go 0_CREATE_DB`
 func main() {
 	hostsFunc := os.Args[1]
 
@@ -29,6 +30,15 @@ var (
 CREATE TABLE redirects (
 source STRING PRIMARY KEY,
 target STRING
+);
+			`)
+		},
+		"1_CREATE_TIMINGS": func(conn *pgx.Conn) {
+			panicExec(conn, `
+CREATE TABLE timings (
+id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+log_time TIMESTAMP DEFAULT NOW(),
+active_count INT NOT NULL
 );
 			`)
 		},
